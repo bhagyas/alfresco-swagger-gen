@@ -125,8 +125,9 @@ class SwaggerGen{
         };
       }
 
-      def[path][method]["x-transaction-requiresnew"] =
-          jsonObj.webscript.transaction["#text"] == "requiresnew";
+if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"])
+        def[path][method]["x-transaction-requiresnew"] =
+            jsonObj.webscript.transaction["#text"] == "requiresnew";
       if (
           jsonObj.webscript.transaction.attr &&
           jsonObj.webscript.transaction.attr["@_allow"]
@@ -139,13 +140,15 @@ class SwaggerGen{
       )
         def[path][method]["x-transaction-buffersize"] =
             jsonObj.webscript.transaction.attr["@_buffersize"];
-
-      if (jsonObj.webscript.authentication["#text"])
-        def[path][method]["x-authentication"] =
-            jsonObj.webscript.authentication["#text"];
+}
 
       if (jsonObj.webscript.attr && jsonObj.webscript.attr["@_kind"])
         def[path][method]["x-kind"] = jsonObj.webscript.attr["@_kind"];
+
+      if (jsonObj.webscript.authentication){
+      if (jsonObj.webscript.authentication["#text"])
+        def[path][method]["x-authentication"] =
+            jsonObj.webscript.authentication["#text"];
 
       if (
           jsonObj.webscript.authentication.attr &&
@@ -153,6 +156,8 @@ class SwaggerGen{
       )
         def[path][method]["x-authentication-runas"] =
             jsonObj.webscript.authentication.attr["@_runas"];
+      }
+
       if (jsonObj.webscript.family)
         def[path][method]["x-family"] = jsonObj.webscript.family;
       if (jsonObj.webscript.lifecycle)
@@ -276,19 +281,19 @@ let typesMap = {
 require('yargs') // eslint-disable-line
     .command('$0 [destination] [scanPath] [header]' , 'Generate OpenAPI (Swagger) definitions with Alfresco Webscript Descriptor files', (yargs) => {
       yargs
-          .positional('header', {
+          .option('header', {
             describe: 'Custom header file for the OpenAPI definition output',
             default: "./templates/default_header.yaml"
           })
-          .positional('destination', {
+          .option('destination', {
             describe: 'Destination for the generated OpenAPI yaml file.',
             default: './output.yaml'
           })
-          .positional('maxFileCount', {
+          .option('maxFileCount', {
             describe: 'Maximum file count in case of testing.',
             default: -1
           })
-          .positional('scanPath', {
+          .option('scanPath', {
             describe: 'Folder path to scan for webscript descriptors',
             default: '.'
           })
