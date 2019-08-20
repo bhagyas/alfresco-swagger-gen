@@ -95,13 +95,24 @@ class SwaggerGen {
 
         .then(combined => {
           //add defaults
-          Object.assign(combined, {
-            components: {
-              securitySchemes: {
-                BasicAuth: { type: "http", scheme: "basic" }
+          if (!combined.components) {
+            Object.assign(combined, {
+              components: {
+                securitySchemes: {
+                  BasicAuth: { type: "http", scheme: "basic" },
+                  AdminAuth: { type: "http", scheme: "basic" }
+                }
               }
-            }
-          });
+            });
+          } else {
+            Object.assign(combined["components"], {
+              securitySchemes: {
+                BasicAuth: { type: "http", scheme: "basic" },
+                AdminAuth: { type: "http", scheme: "basic" }
+              }
+            });
+          }
+
           return combined;
         })
 
@@ -139,9 +150,10 @@ class SwaggerGen {
       let method = SwaggerGen.getMethod(fileName);
       def[path][method] = {};
       def[path][method]["summary"] = jsonObj.webscript.shortname;
-      def[path][method]["description"] = SwaggerGen.getCDataOrDesc(
+      let description = SwaggerGen.getCDataOrDesc(
         jsonObj.webscript.description
       );
+      def[path][method]["description"] = description;
       if (jsonObj.webscript.format && jsonObj.webscript.format.attr) {
         // SwaggerGen.getMimeType(jsonObj.webscript.format.attr["@_default"]) !=
         let jsonSpecifiedMimeType = SwaggerGen.getMimeType(
@@ -161,20 +173,22 @@ class SwaggerGen {
           responseContents[jsonSpecifiedMimeType] = {};
 
         if (responseContents)
-          // if (responseContents.hasOwnProperty("application/json")) {
-          //   //if json, set response type to object
-          //   responseContents["application/json"] = {
-          //     schema: {
-          //       type: "object"
-          //     }
-          //   };
-          // }
-
-          def[path][method]["responses"] = {
-            200: {
-              content: responseContents
+          if (responseContents.hasOwnProperty("application/json")) {
+            if (jsonObj.webscript.responseType) {
+              responseContents["application/json"] = {
+                schema: {
+                  $ref: "#/components/schemas/" + jsonObj.webscript.responseType
+                }
+              };
             }
-          };
+          }
+
+        def[path][method]["responses"] = {
+          200: {
+            content: responseContents,
+            description: description
+          }
+        };
       }
 
       if (jsonObj.webscript.transaction) {
@@ -209,12 +223,13 @@ class SwaggerGen {
         if (authentication) {
           def[path][method]["x-authentication"] = authentication;
 
-          if (authentication == "user" || authentication == "admin") {
+          if (authentication == "user") {
+            def[path][method]["security"] = [{ BasicAuth: [] }];
+          }
+          if (authentication == "admin") {
             def[path][method]["security"] = [
-              {
-                type: "http",
-                scheme: "Basic"
-              }
+              { BasicAuth: [] },
+              { AdminAuth: [] }
             ];
           }
         }
@@ -256,7 +271,6 @@ class SwaggerGen {
           def[path][method]["parameters"].push({
             name: item.match(/\w+/)[0],
             in: "path",
-            type: "string",
             schema: { type: "string" },
             required: true
           });
@@ -271,7 +285,6 @@ class SwaggerGen {
           def[path][method]["parameters"].push({
             name: item.match(/\w+/)[0],
             in: "query",
-            type: "string",
             schema: { type: "string" }
           });
         });
@@ -312,7 +325,6 @@ class SwaggerGen {
               def[path][method]["parameters"].push({
                 name: arg.name,
                 in: "query",
-                type: "string",
                 description: SwaggerGen.getCDataOrDesc(arg.description),
                 schema: { type: "string" }
               });
