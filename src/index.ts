@@ -243,8 +243,8 @@ class SwaggerGen {
       }
 
       if (jsonObj.webscript.family) {
-        def[path][method]["x-family"] = jsonObj.webscript.family;
         def[path][method]["tags"] = Array(1).fill(jsonObj.webscript.family);
+        def[path][method]["x-family"] = jsonObj.webscript.family;
       }
 
       if (jsonObj.webscript.lifecycle)
