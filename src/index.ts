@@ -72,7 +72,17 @@ class SwaggerGen {
       }
       Promise.all(getResults())
         .then(array => {
-          return array.reduce((r, c) => Object.assign(r, c), {});
+          return array.reduce((previous, current) => {
+            for (let first in current) {
+              if (previous.hasOwnProperty(first)) {
+                //merge the methods instead.
+                console.log("#### merging : " + first);
+                Object.assign(previous[first], current[first]);
+                return previous;
+              }
+            }
+            return Object.assign(previous, current);
+          }, {});
         })
         .then(async combined => {
           // yaml.
@@ -198,7 +208,8 @@ class SwaggerGen {
 
       //TODO: Implement negotiate: https://docs.alfresco.com/5.2/references/api-wsdl-negotiate.html
 
-      let pathParams = path.match(/\{(\w+)\}/g);
+      let pathParams = path.match(/\/\{(\w+)\}/g);
+      let queryParams = path.match(/=\{(\w+)\}/g);
       if (pathParams) def[path][method]["parameters"] = new Array();
 
       if (pathParams && pathParams.length > 0) {
@@ -213,13 +224,35 @@ class SwaggerGen {
         });
       }
 
+      if (queryParams && !def[path][method]["parameters"])
+        def[path][method]["parameters"] = new Array();
+      queryParams &&
+        queryParams.forEach(item => {
+          // console.log("path contains: " + item);
+          def[path][method]["parameters"].push({
+            name: item.match(/\w+/)[0],
+            in: "query",
+            type: "string",
+            schema: { type: "string" }
+          });
+        });
+
       if (jsonObj.webscript.args) {
-        def[path][method]["x-family"] = jsonObj.webscript.family;
         // console.log(JSON.stringify(jsonObj.webscript.args.arg));
 
-        jsonObj.webscript.args.arg.forEach(arg => {
+        let args = Array();
+        if (Array.isArray(jsonObj.webscript.args.arg)) {
+          args.push(...jsonObj.webscript.args.arg);
+        } else {
+          args.push(jsonObj.webscript.args.arg);
+        }
+
+        args.forEach(arg => {
           //update if there's any existing path parameter;
           let isPathParam = false;
+          if (!def[path][method]["parameters"])
+            def[path][method]["parameters"] = [];
+
           def[path][method]["parameters"].forEach(existingParam => {
             if (existingParam.name == arg.name) {
               existingParam.description = SwaggerGen.getCDataOrDesc(
@@ -231,8 +264,11 @@ class SwaggerGen {
 
           if (!isPathParam) {
             //find if presetn
-            console.log("parsing arg: " + arg.name);
-            if (path.indexOf(`{${arg.name}}`) != -1) {
+            // console.log("parsing arg: " + arg.name);
+
+            // if (path.indexOf(`{${arg.name}}`) != -1) {
+            //all non-path parameters are considered query parameters
+            if (true) {
               //arg is contained in path, so add to parameters
               def[path][method]["parameters"].push({
                 name: arg.name,
@@ -248,7 +284,7 @@ class SwaggerGen {
     });
 
     console.log("#### filename: " + fileName);
-    console.log(def);
+    // console.log(def);
     return def;
   }
 
@@ -296,28 +332,23 @@ class SwaggerGen {
     // return fileName.match(/\.{json|html}\.xml/);
     var container = path.dirname(fileName);
     var baseFileName = path.parse(fileName).name.match(/\w+/);
-    console.log(baseFileName);
+    // console.log(baseFileName);
     // @ts-ignore
     let matchPattern = path.join(container, baseFileName[0]) + ".**.**";
-    console.log(matchPattern);
     let matcher = new RegExp("\\w+." + method + ".(\\w+).ftl");
     let matches = glob.sync(matchPattern);
-    console.log(matches);
     return matches
       .filter(match => {
         let baseName = path.basename(match);
-        console.log(baseName);
         return baseName.match(matcher);
       })
       .map(match => {
-        console.log(`matching fileName: ${match}`);
         return match.match(matcher);
       })
       .filter(match => match != null)
       .map(match => {
         //@ts-ignore
         let extension = match[1];
-        console.log(extension);
         return extension;
       });
   }
