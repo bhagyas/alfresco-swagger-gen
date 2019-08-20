@@ -5,6 +5,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as parser from "fast-xml-parser";
 import * as yaml from "js-yaml";
+
 var mkdirp = require("mkdirp");
 
 var he = require("he");
@@ -34,65 +35,67 @@ var options = {
   tagValueProcessor: a => he.decode(a) //default is a=>a
 };
 
-class SwaggerGen{
+class SwaggerGen {
   scanPath;
   destinationYaml = "./target/output-swagger-def.yaml";
   customHeaderPath = "./templates/default_header.yaml";
   maxFileCount = -1; //-1 is all
 
-  constructor(scanPath){
-    this.scanPath = scanPath
+  constructor(scanPath) {
+    this.scanPath = scanPath;
   }
 
-  getFullPath(){
+  getFullPath() {
     let fullPath = path.join(this.scanPath, "**/*.desc.xml");
     console.log("looking for descriptor files in path: " + fullPath);
     return fullPath;
   }
-  generate(){
+  generate() {
     let self = this;
-    
+
     glob(self.getFullPath(), {}, function(er, files) {
       console.log("found " + files.length + " files");
-      let selectedFiles = self.maxFileCount > 0 ? files.slice(0, self.maxFileCount) : files;
+      let selectedFiles =
+        self.maxFileCount > 0 ? files.slice(0, self.maxFileCount) : files;
 
       function getResults() {
         return selectedFiles.map(fileName => {
-          return self.getContent(fileName)
-              .then(content => {
-                return content.toString("utf8");
-              })
-              .then(content => {
-                return self.getYamlDefJson(content, fileName);
-              });
+          return self
+            .getContent(fileName)
+            .then(content => {
+              return content.toString("utf8");
+            })
+            .then(content => {
+              return self.getYamlDefJson(content, fileName);
+            });
         });
       }
       Promise.all(getResults())
-          .then(array => {
-            return array.reduce((r, c) => Object.assign(r, c), {});
-          })
-          .then(async combined => {
-            // yaml.
-            let outputFileContents = yaml.safeLoad(
-                await self.getContent(self.customHeaderPath)
-            );
-            outputFileContents["paths"] = combined;
-            return Promise.resolve(outputFileContents);
-          })
+        .then(array => {
+          return array.reduce((r, c) => Object.assign(r, c), {});
+        })
+        .then(async combined => {
+          // yaml.
+          let outputFileContents = yaml.safeLoad(
+            await self.getContent(self.customHeaderPath)
+          );
+          outputFileContents["paths"] = combined;
+          return Promise.resolve(outputFileContents);
+        })
 
-          .then(combined => {
-            console.log("\n\n#### RESULT");
-            const outputYaml = yaml.dump(combined);
-            console.log(outputYaml);
-            console.log("#### END RESULT\n\n");
-            return outputYaml;
-          })
-          .then(outputYaml => {
-            //write to file                        
-            mkdirp(path.dirname(self.destinationYaml));
-            fs.writeFileSync(self.destinationYaml, outputYaml);
-          });
-    })
+        .then(combined => {
+          console.log("\n\n#### RESULT");
+          const outputYaml = yaml.dump(combined);
+          console.log(outputYaml);
+          console.log("#### END RESULT\n\n");
+          return outputYaml;
+        })
+        .then(outputYaml => {
+          //write to file
+          mkdirp(path.dirname(self.destinationYaml));
+          fs.writeFileSync(self.destinationYaml, outputYaml);
+        });
+    });
   }
 
   getYamlDefJson(xmlData: string, fileName: string) {
@@ -106,8 +109,8 @@ class SwaggerGen{
 
     let def = {};
     let urls = Array.isArray(jsonObj.webscript.url)
-        ? jsonObj.webscript.url
-        : Array(1).fill(jsonObj.webscript.url);
+      ? jsonObj.webscript.url
+      : Array(1).fill(jsonObj.webscript.url);
 
     urls.forEach(path => {
       def[path] = {};
@@ -115,54 +118,71 @@ class SwaggerGen{
       def[path][method] = {};
       def[path][method]["summary"] = jsonObj.webscript.shortname;
       def[path][method]["description"] = SwaggerGen.getCDataOrDesc(
-          jsonObj.webscript.description
+        jsonObj.webscript.description
       );
       if (jsonObj.webscript.format && jsonObj.webscript.format.attr) {
+        // SwaggerGen.getMimeType(jsonObj.webscript.format.attr["@_default"]) !=
+        let jsonSpecifiedMimeType = SwaggerGen.getMimeType(
+          jsonObj.webscript.format.attr["@_default"]
+        );
+        let responseContents = {};
+        let fileMimeTypes = SwaggerGen.getFileDefinedMimeType(fileName)
+          .map(ext => {
+            return SwaggerGen.getMimeType(ext);
+          })
+          .filter(mt => mt != null)
+          .forEach(mt => {
+            responseContents[mt] = {};
+          });
+
+        if (jsonSpecifiedMimeType != null)
+          responseContents[jsonSpecifiedMimeType] = {};
+
         def[path][method]["responses"] = {
           200: {
-            content: SwaggerGen.getMimeType(jsonObj.webscript.format.attr["@_default"])
+            content: responseContents
           }
         };
       }
 
-if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"])
-        def[path][method]["x-transaction-requiresnew"] =
+      if (jsonObj.webscript.transaction) {
+        if (jsonObj.webscript.transaction["#text"])
+          def[path][method]["x-transaction-requiresnew"] =
             jsonObj.webscript.transaction["#text"] == "requiresnew";
-      if (
+        if (
           jsonObj.webscript.transaction.attr &&
           jsonObj.webscript.transaction.attr["@_allow"]
-      )
-        def[path][method]["x-transaction-allow"] =
+        )
+          def[path][method]["x-transaction-allow"] =
             jsonObj.webscript.transaction.attr["@_allow"];
-      if (
+        if (
           jsonObj.webscript.transaction.attr &&
           jsonObj.webscript.transaction.attr["@_buffersize"]
-      )
-        def[path][method]["x-transaction-buffersize"] =
+        )
+          def[path][method]["x-transaction-buffersize"] =
             jsonObj.webscript.transaction.attr["@_buffersize"];
-}
+      }
 
       if (jsonObj.webscript.attr && jsonObj.webscript.attr["@_kind"])
         def[path][method]["x-kind"] = jsonObj.webscript.attr["@_kind"];
 
-      if (jsonObj.webscript.authentication){
-      if (jsonObj.webscript.authentication["#text"])
-        def[path][method]["x-authentication"] =
+      if (jsonObj.webscript.authentication) {
+        if (jsonObj.webscript.authentication["#text"])
+          def[path][method]["x-authentication"] =
             jsonObj.webscript.authentication["#text"];
 
-      if (
+        if (
           jsonObj.webscript.authentication.attr &&
           jsonObj.webscript.authentication.attr["@_runas"]
-      )
-        def[path][method]["x-authentication-runas"] =
+        )
+          def[path][method]["x-authentication-runas"] =
             jsonObj.webscript.authentication.attr["@_runas"];
       }
 
-      if (jsonObj.webscript.family)
-        {
-            def[path][method]["x-family"] = jsonObj.webscript.family;
-            def[path][method]["tags"] = Array(1).fill(jsonObj.webscript.family);
-        }
+      if (jsonObj.webscript.family) {
+        def[path][method]["x-family"] = jsonObj.webscript.family;
+        def[path][method]["tags"] = Array(1).fill(jsonObj.webscript.family);
+      }
 
       if (jsonObj.webscript.lifecycle)
         def[path][method]["x-lifecycle"] = jsonObj.webscript.lifecycle;
@@ -174,7 +194,7 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
         def[path][method]["x-cache-public"] = !!jsonObj.webscript.cache.public;
       if (jsonObj.webscript.cache)
         def[path][method]["x-cache-mustrevalidate"] = !!jsonObj.webscript.cache
-            .mustrevalidate;
+          .mustrevalidate;
 
       //TODO: Implement negotiate: https://docs.alfresco.com/5.2/references/api-wsdl-negotiate.html
 
@@ -187,7 +207,8 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
           def[path][method]["parameters"].push({
             name: item.match(/\w+/)[0],
             in: "path",
-            type: 'string'
+            type: "string",
+            schema: { type: "string" }
           });
         });
       }
@@ -201,7 +222,9 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
           let isPathParam = false;
           def[path][method]["parameters"].forEach(existingParam => {
             if (existingParam.name == arg.name) {
-              existingParam.description = SwaggerGen.getCDataOrDesc(arg.description);
+              existingParam.description = SwaggerGen.getCDataOrDesc(
+                arg.description
+              );
               isPathParam = true;
             }
           });
@@ -214,8 +237,9 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
               def[path][method]["parameters"].push({
                 name: arg.name,
                 in: "query",
-                type: 'string',
-                description: SwaggerGen.getCDataOrDesc(arg.description)
+                type: "string",
+                description: SwaggerGen.getCDataOrDesc(arg.description),
+                schema: { type: "string" }
               });
             }
           }
@@ -228,7 +252,6 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
     return def;
   }
 
-
   /**
    * Returns the mimetype for the given format shortname
    * @param key
@@ -236,15 +259,14 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
   static getMimeType(key) {
     let mimeType = typesMap[key];
     if (mimeType) return mimeType;
-    return "unknown";
+    return null;
   }
-
 
   /**
    * Returns the request method based on the filename
    * @param fileName
    */
-  static  getMethod(fileName) {
+  static getMethod(fileName) {
     return fileName.match(/get|post|put|delete/);
   }
 
@@ -261,60 +283,93 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
    * Returns CDATA or text based on availability
    * @param prop
    */
-   static getCDataOrDesc(prop) {
+  static getCDataOrDesc(prop) {
     if (prop.__cdata) {
       return prop.__cdata.trim();
     }
     return prop.trim();
   }
 
+  static getFileDefinedMimeType(fileName: string) {
+    let method = SwaggerGen.getMethod(fileName);
+    //look for matching extensions
+    // return fileName.match(/\.{json|html}\.xml/);
+    var container = path.dirname(fileName);
+    var baseFileName = path.parse(fileName).name.match(/\w+/);
+    console.log(baseFileName);
+    // @ts-ignore
+    let matchPattern = path.join(container, baseFileName[0]) + ".**.**";
+    console.log(matchPattern);
+    let matcher = new RegExp("\\w+." + method + ".(\\w+).ftl");
+    let matches = glob.sync(matchPattern);
+    console.log(matches);
+    return matches
+      .filter(match => {
+        let baseName = path.basename(match);
+        console.log(baseName);
+        return baseName.match(matcher);
+      })
+      .map(match => {
+        console.log(`matching fileName: ${match}`);
+        return match.match(matcher);
+      })
+      .filter(match => match != null)
+      .map(match => {
+        //@ts-ignore
+        let extension = match[1];
+        console.log(extension);
+        return extension;
+      });
+  }
+}
 
-
-
-};
+SwaggerGen.getFileDefinedMimeType(
+  // "/Users/bhagyasilva/IdeaProjects/sharebox/sharebox-repo/src/test/resources/alfresco/extension/templates/webscripts/se/loftux/modules/sharebox/resendInvites/resendinvites.get.desc.xml"
+  "/Users/bhagyasilva/IdeaProjects/sharebox/sharebox-repo/src/main/amp/config/alfresco/templates/webscripts/se/loftux/modules/sharebox/util/cleanuptemporarynodes.get.desc.xml"
+);
 
 /**
  * TypesMap for mimetype mapping
  */
 let typesMap = {
   json: "application/json",
-  binary: "application/binary",
-  unknown: "application/binary"
+  html: "application/html",
+  binary: "application/binary"
 };
 
-
-
-require('yargs') // eslint-disable-line
-    .command('$0 [destination] [scanPath] [header]' , 'Generate OpenAPI (Swagger) definitions with Alfresco Webscript Descriptor files', (yargs) => {
+require("yargs") // eslint-disable-line
+  .command(
+    "$0 [destination] [scanPath] [header]",
+    "Generate OpenAPI (Swagger) definitions with Alfresco Webscript Descriptor files",
+    yargs => {
       yargs
-          .option('header', {
-            describe: 'Custom header file for the OpenAPI definition output',
-            default: "./templates/default_header.yaml"
-          })
-          .option('destination', {
-            describe: 'Destination for the generated OpenAPI yaml file.',
-            default: './target/output.yaml'
-          })
-          .option('maxFileCount', {
-            describe: 'Maximum file count in case of testing.',
-            default: -1
-          })
-          .option('scanPath', {
-            describe: 'Folder path to scan for webscript descriptors',
-            default: '.'
-          })
-
-    }, (argv) => {
-      if (argv.verbose) console.info(`start server on :${argv.port}`)
+        .option("header", {
+          describe: "Custom header file for the OpenAPI definition output",
+          default: "./templates/default_header.yaml"
+        })
+        .option("destination", {
+          describe: "Destination for the generated OpenAPI yaml file.",
+          default: "./target/output.yaml"
+        })
+        .option("maxFileCount", {
+          describe: "Maximum file count in case of testing.",
+          default: -1
+        })
+        .option("scanPath", {
+          describe: "Folder path to scan for webscript descriptors",
+          default: "."
+        });
+    },
+    argv => {
+      if (argv.verbose) console.info(`starting looking on :${argv.scanPath}`);
       let swaggerGen = new SwaggerGen(argv.scanPath);
       swaggerGen.customHeaderPath = argv.header;
       swaggerGen.destinationYaml = argv.destination;
       swaggerGen.maxFileCount = argv.max;
       swaggerGen.generate();
-    })
-    .option('verbose', {
-      alias: 'v',
-      default: false
-    })
-    .argv;
-
+    }
+  )
+  .option("verbose", {
+    alias: "v",
+    default: false
+  }).argv;
