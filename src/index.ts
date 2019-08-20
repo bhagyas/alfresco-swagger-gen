@@ -159,7 +159,11 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
       }
 
       if (jsonObj.webscript.family)
-        def[path][method]["x-family"] = jsonObj.webscript.family;
+        {
+            def[path][method]["x-family"] = jsonObj.webscript.family;
+            def[path][method]["tags"] = Array(1).fill(jsonObj.webscript.family);
+        }
+
       if (jsonObj.webscript.lifecycle)
         def[path][method]["x-lifecycle"] = jsonObj.webscript.lifecycle;
 
@@ -181,8 +185,9 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
         pathParams.forEach(item => {
           // console.log("path contains: " + item);
           def[path][method]["parameters"].push({
+            name: item.match(/\w+/)[0],
             in: "path",
-            name: item.match(/\w+/)[0]
+            type: 'string'
           });
         });
       }
@@ -207,8 +212,9 @@ if(jsonObj.webscript.transaction){      if(jsonObj.webscript.transaction["#text"
             if (path.indexOf(`{${arg.name}}`) != -1) {
               //arg is contained in path, so add to parameters
               def[path][method]["parameters"].push({
-                in: "query",
                 name: arg.name,
+                in: "query",
+                type: 'string',
                 description: SwaggerGen.getCDataOrDesc(arg.description)
               });
             }
@@ -287,7 +293,7 @@ require('yargs') // eslint-disable-line
           })
           .option('destination', {
             describe: 'Destination for the generated OpenAPI yaml file.',
-            default: './output.yaml'
+            default: './target/output.yaml'
           })
           .option('maxFileCount', {
             describe: 'Maximum file count in case of testing.',
