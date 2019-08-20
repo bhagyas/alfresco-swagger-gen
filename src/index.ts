@@ -94,6 +94,18 @@ class SwaggerGen {
         })
 
         .then(combined => {
+          //add defaults
+          Object.assign(combined, {
+            components: {
+              securitySchemes: {
+                BasicAuth: { type: "http", scheme: "basic" }
+              }
+            }
+          });
+          return combined;
+        })
+
+        .then(combined => {
           console.log("\n\n#### RESULT");
           const outputYaml = yaml.dump(combined);
           console.log(outputYaml);
@@ -148,11 +160,21 @@ class SwaggerGen {
         if (jsonSpecifiedMimeType != null)
           responseContents[jsonSpecifiedMimeType] = {};
 
-        def[path][method]["responses"] = {
-          200: {
-            content: responseContents
-          }
-        };
+        if (responseContents)
+          // if (responseContents.hasOwnProperty("application/json")) {
+          //   //if json, set response type to object
+          //   responseContents["application/json"] = {
+          //     schema: {
+          //       type: "object"
+          //     }
+          //   };
+          // }
+
+          def[path][method]["responses"] = {
+            200: {
+              content: responseContents
+            }
+          };
       }
 
       if (jsonObj.webscript.transaction) {
@@ -177,9 +199,25 @@ class SwaggerGen {
         def[path][method]["x-kind"] = jsonObj.webscript.attr["@_kind"];
 
       if (jsonObj.webscript.authentication) {
-        if (jsonObj.webscript.authentication["#text"])
-          def[path][method]["x-authentication"] =
-            jsonObj.webscript.authentication["#text"];
+        let authentication: any;
+
+        if (jsonObj.webscript.authentication.hasOwnProperty("#text")) {
+          authentication = jsonObj.webscript.authentication["#text"];
+        } else {
+          authentication = jsonObj.webscript.authentication;
+        }
+        if (authentication) {
+          def[path][method]["x-authentication"] = authentication;
+
+          if (authentication == "user" || authentication == "admin") {
+            def[path][method]["security"] = [
+              {
+                type: "http",
+                scheme: "Basic"
+              }
+            ];
+          }
+        }
 
         if (
           jsonObj.webscript.authentication.attr &&
@@ -219,7 +257,8 @@ class SwaggerGen {
             name: item.match(/\w+/)[0],
             in: "path",
             type: "string",
-            schema: { type: "string" }
+            schema: { type: "string" },
+            required: true
           });
         });
       }
@@ -353,11 +392,6 @@ class SwaggerGen {
       });
   }
 }
-
-SwaggerGen.getFileDefinedMimeType(
-  // "/Users/bhagyasilva/IdeaProjects/sharebox/sharebox-repo/src/test/resources/alfresco/extension/templates/webscripts/se/loftux/modules/sharebox/resendInvites/resendinvites.get.desc.xml"
-  "/Users/bhagyasilva/IdeaProjects/sharebox/sharebox-repo/src/main/amp/config/alfresco/templates/webscripts/se/loftux/modules/sharebox/util/cleanuptemporarynodes.get.desc.xml"
-);
 
 /**
  * TypesMap for mimetype mapping
