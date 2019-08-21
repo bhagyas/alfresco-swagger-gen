@@ -55,6 +55,9 @@ class SwaggerGen {
 
     glob(self.getFullPath(), {}, function(er, files) {
       console.log("found " + files.length + " files");
+      if (files.length == 0) {
+        return;
+      }
       let selectedFiles =
         self.maxFileCount > 0 ? files.slice(0, self.maxFileCount) : files;
 
@@ -174,10 +177,12 @@ class SwaggerGen {
 
         if (responseContents)
           if (responseContents.hasOwnProperty("application/json")) {
-            if (jsonObj.webscript.responseType) {
+            if (jsonObj.webscript["x-response-schema"]) {
               responseContents["application/json"] = {
                 schema: {
-                  $ref: "#/components/schemas/" + jsonObj.webscript.responseType
+                  $ref:
+                    "#/components/schemas/" +
+                    jsonObj.webscript["x-response-schema"]
                 }
               };
             }
@@ -422,7 +427,7 @@ require("yargs") // eslint-disable-line
       yargs
         .option("header", {
           describe: "Custom header file for the OpenAPI definition output",
-          default: "./templates/default_header.yaml"
+          default: path.join(__dirname, "../templates/default_header.yaml")
         })
         .option("destination", {
           describe: "Destination for the generated OpenAPI yaml file.",

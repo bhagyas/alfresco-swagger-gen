@@ -1,8 +1,9 @@
 {
   "name": "alfresco-swagger-gen",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Generates Swagger YAML files using Alfresco Webscript Definition files",
   "main": "lib/index.js",
+  "bin": "lib/index.js",
   "scripts": {
     "dev": "tsc --watch & nodemon lib",
     "build": "tsc",
@@ -11,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/bhagyas/alfresco-swagger-gen"
   },
   "keywords": [
     "alfresco",
@@ -20,7 +21,7 @@
   ],
   "author": "Bhagya Silva",
   "license": "ISC",
-  "homepage": "",
+  "homepage": "https://github.com/bhagyas/alfresco-swagger-gen",
   "devDependencies": {
     "@types/glob": "^7.1.1",
     "nodemon": "^1.19.1",
