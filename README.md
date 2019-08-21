@@ -6,7 +6,9 @@ OpenAPI (Swagger) definition generator for Alfresco Webscript Files
 ### Via NPM 
 Run `npm install -g alfresco-swagger-gen`
 
-### Cloning 
+Official NPM Package is at https://www.npmjs.com/package/alfresco-swagger-gen
+
+### Via Cloning 
 Clone the repository and run `npm link` from the project root.
 
 ## Usage
