@@ -11,6 +11,7 @@ Clone the repository and run `npm link` from the project root.
 
 ## Usage
 
+### Generating OpenAPI (Swagger) Document
 Refer to the command line syntax below.
 
 ```
@@ -27,6 +28,18 @@ alfresco-swagger-gen --header ../my-project/my-header.yaml \
 | scanPath | Root path for scanning for Alfresco webscript descriptor files |
 
 * An example header file is found in `./templates/default_header.yaml` within the source.
+
+### Running Swagger-UI
+
+alfresco-swagger-gen allows you to run Swagger-UI with your generated OpenAPI document. It copies the specified OpenAPI document to a custom folder and mounts it to a docker image running Swagger-UI.
+
+The following command runs the built-in `docker-compose` file and opens the browser showing the Swagger-UI.
+
+```
+alfresco-swagger-gen ui --destination ./my-project/swagger-definitions.yaml \
+&& open http://localhost:80
+```
+
 
 
 ## Mapping

@@ -8,7 +8,8 @@
     "dev": "tsc --watch & nodemon lib",
     "build": "tsc",
     "run": "node lib/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postversion": "git push && git push --tags"
   },
   "repository": {
     "type": "git",
@@ -24,6 +25,7 @@
   "homepage": "https://github.com/bhagyas/alfresco-swagger-gen",
   "devDependencies": {
     "@types/glob": "^7.1.1",
+    "docker-compose": "^0.21.0",
     "nodemon": "^1.19.1",
     "typescript": "^3.5.3"
   },

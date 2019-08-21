@@ -5,6 +5,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as parser from "fast-xml-parser";
 import * as yaml from "js-yaml";
+import * as compose from "docker-compose";
 
 var mkdirp = require("mkdirp");
 
@@ -421,6 +422,46 @@ let typesMap = {
 
 require("yargs") // eslint-disable-line
   .command(
+    "ui",
+    "Show Swagger UI after generating the file.",
+    yargs => {
+      yargs
+        .option("destination", {
+          describe: "Destination for the generated OpenAPI yaml file.",
+          default: "./target/output.yaml",
+          required: true
+        })
+        .demandOption("destination");
+    },
+    argv => {
+      console.log(
+        "Attempting to run docker-compose with swagger-ui...\nThis copies your Swagger YAML file to a different directory."
+      );
+
+      console.log(
+        `copying [${path.resolve(argv.destination)}] to [${path.join(
+          __dirname,
+          "/target/output.yaml"
+        )}]`
+      );
+
+      fs.copyFile(
+        path.resolve(argv.destination),
+        path.join(__dirname, "../target/output.yaml"),
+        err => {
+          compose.upAll({ cwd: path.join(__dirname), log: true }).then(
+            () => {
+              console.log("done");
+            },
+            err => {
+              console.log("something went wrong:", err.message);
+            }
+          );
+        }
+      );
+    }
+  )
+  .command(
     "$0 [destination] [scanPath] [header]",
     "Generate OpenAPI (Swagger) definitions with Alfresco Webscript Descriptor files",
     yargs => {
@@ -449,6 +490,17 @@ require("yargs") // eslint-disable-line
       swaggerGen.destinationYaml = argv.destination;
       swaggerGen.maxFileCount = argv.max;
       swaggerGen.generate();
+
+      if (argv.ui) {
+        compose.upAll({ cwd: path.join(__dirname), log: true }).then(
+          () => {
+            console.log("done");
+          },
+          err => {
+            console.log("something went wrong:", err.message);
+          }
+        );
+      }
     }
   )
   .option("verbose", {
